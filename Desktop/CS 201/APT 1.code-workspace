@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"java.project.referencedLibraries": [
+			"lib/**/*.jar",
+			"Projects/p0-person201-spring2026/lib/gson-2.13.1.jar",
+			"p1-markov-spring2026/lib/compsci201.jar",
+			"p1-markov-spring2026/lib/hamcrest-core-1.3.jar",
+			"p1-markov-spring2026/lib/junit-4.13.2.jar",
+			"p1-markov-spring2026/lib/junit-jupiter-api-5.8.2.jar",
+			"p1-markov-spring2026/lib/junit-platform-console-standalone-1.8.2.jar",
+			"p1-markov-spring2026/lib/opentest4j-1.2.0.jar"
+		]
+	}
+}
