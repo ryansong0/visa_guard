@@ -1,0 +1,24 @@
+{
+  "managerial_terms": [
+    {
+      "term": "manage",
+      "severity": "high",
+      "reason": "Managerial language may violate TN visa requirements"
+    },
+    {
+      "term": "lead",
+      "severity": "medium",
+      "reason": "Leadership wording can imply supervisory responsibilities"
+    },
+    {
+      "term": "direct",
+      "severity": "high",
+      "reason": "Directing teams suggests managerial duties"
+    },
+    {
+      "term": "oversee",
+      "severity": "high",
+      "reason": "Oversight of people or functions may be interpreted as management"
+    }
+  ]
+}
