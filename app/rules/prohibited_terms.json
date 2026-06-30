@@ -3,7 +3,8 @@
     {
       "term": "manage",
       "severity": "high",
-      "reason": "Managerial language may violate TN visa requirements"
+      "reason": "Managerial language may violate TN visa requirements",
+      "suggestion": "coordinate, execute, or architect"
     },
     {
       "term": "lead",
@@ -18,7 +19,8 @@
     {
       "term": "oversee",
       "severity": "high",
-      "reason": "Oversight of people or functions may be interpreted as management"
+      "reason": "Oversight of people or functions may be interpreted as management",
+      "suggestion": "monitor, evaluate, or review"
     }
   ]
 }
