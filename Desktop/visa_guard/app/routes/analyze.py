@@ -9,11 +9,6 @@ def analyze(data: dict):
 
     findings = analyze_text(job_description)
 
-    risk_level = "Low"
-    if findings:
-        risk_level = "High"
+    analysis_results = analyze_text(job_description)
 
-    return {
-        "risk_level": risk_level,
-        "flags": findings
-    }
+    return analysis_results
