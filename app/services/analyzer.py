@@ -4,7 +4,7 @@ import spacy
 
 nlp = spacy.load("en_core_web_sm")
 
-RULES_PATH = os.path.join(os.path.dirname(__file__), "../rules/prohibited_terms.json")
+RULES_PATH = os.path.join(os.path.dirname(__file__), "..", "rules", "prohibited_terms.json")
 
 def analyze_text(text: str):
     with open(RULES_PATH, "r") as f:
@@ -14,10 +14,22 @@ def analyze_text(text: str):
     doc = nlp(text)
     text_lower = text.lower()
 
+    severity_weights = {
+        "low": 10,
+        "medium": 30,
+        "high": 70,
+        "critical": 100
+    }
+
+    total_possible_risk = 0
+    accumulated_risk = 0
+
     for item in rules["managerial_terms"]:
         term = item["term"]
 
         start = 0
+        severity = item.get("severity", "low").lower()
+        weight = severity_weights.get(severity, 10)
         while True:
             index = text_lower.find(term, start)
 
@@ -34,6 +46,7 @@ def analyze_text(text: str):
                     if any(obj in children_text for obj in technical_objects):
                         is_false_positive = True
                     break
+
             if not is_false_positive:
                 findings.append({
                     "term": term,
@@ -44,6 +57,23 @@ def analyze_text(text: str):
                     "reason": item["reason"]
                 })
 
+                accumulated_risk += weight
+
             start = index + len(term)
 
-    return findings
+    final_risk_score = min(accumulated_risk, 100)
+
+    if final_risk_score >= 70:
+        overall_risk = "Critical"
+    elif final_risk_score >= 40:
+        overall_risk = "Medium"
+    elif final_risk_score > 0:
+        overall_risk = "Low"
+    else:
+        overall_risk = "Safe"
+
+    return {
+        "risk_score": final_risk_score,
+        "overall_risk_level": overall_risk,
+        "flags": findings
+    }
