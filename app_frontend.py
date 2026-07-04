@@ -56,6 +56,14 @@ with col1:
         height = 300, 
         placeholder = "e.g., You will manage a team of engineers and oversee our code deployment pipelines..."
     )
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+            
+    if user_input := st.chat_input("Provide role responsibilities or reply to follow-ups..."):
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.write(user_input)
     analyze_button = st.button("Run Compliance Audit", type = "primary", use_container_width = True)
 
     if analyze_button and job_text:
