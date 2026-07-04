@@ -47,7 +47,7 @@ def rules_engine(text: str) -> dict:
         start = 0
         severity = item.get("severity", "low").lower()
         weight = severity_weights.get(severity, 10)
-        
+
         while True:
             index = text_lower.find(term, start)
 
@@ -96,3 +96,23 @@ def rules_engine(text: str) -> dict:
         "overall_risk_level": overall_risk,
         "flags": findings
     }
+
+class ComplianceAgentService:
+    def __init__(self):
+        api_key = os.getenv("GEMINI_API_KEY")
+        self.client = genai.Client(api_key = api_key if api_key else "MOCK_KEY")
+        self.model_id = "gemini-2.5-flash"
+
+    def execute_chat_turn(self, conversation_history: List[Dict[str, str]]) -> str:
+        """
+        Coordinates multi-turn dialogue. Calls the local spaCy tool to grab telemetry,
+        then responds to the user while structuring the total state payload.
+        """
+        system_instruction = (
+            "You are an expert U.S. immigration compliance agent evaluating user job profiles.\n"
+            "Your objective is to converse with the user and ensure their profile is completely free of managerial violations.\n\n"
+            "OPERATING INSTRUCTIONS:\n"
+            "1. You have a native tool called 'execute_local_compliance_check'. You MUST call this tool using the user's latest description to gather objective risk data.\n"
+            "2. If the user's text is extremely short or vague (e.g., 'I run things'), ask clarifying follow-up questions instead of clearing them. Set requires_more_info = True.\n"
+            "3. Synthesize the findings from the tool in your conversational 'agent_message'. Return the final output adhering perfectly to the required JSON schema."
+        )
