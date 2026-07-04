@@ -1,10 +1,30 @@
 import json
 import os
 import spacy
+from typing import List, Dict, Any
+from pydantic import BaseModel, Field
+from google import genai
+from google.genai import types
 
 nlp = spacy.load("en_core_web_sm")
 
 RULES_PATH = os.path.join(os.path.dirname(__file__), "..", "rules", "prohibited_terms.json")
+
+class ComplianceFlag(BaseModel):
+    matched_text: str
+    start: int
+    end: int
+    severity: str
+    reason: str
+    suggested_alternative: str
+
+class ConversationTurnResponse(BaseModel):
+    agent_message: str = Field(description = "The conversational text response to guide the user or ask clarifying questions.")
+    requires_more_info: bool = Field(description = "True if the input is too vague or missing details, forcing a follow-up question. False if clear.")
+    risk_score: int = Field(default=0, description = "The compliance risk score (0-100) provided by the local check.")
+    overall_risk_level: str = Field(default = "Safe", description = "The risk level rating provided by the local check.")
+    flags: List[ComplianceFlag] = Field(default_factory = list, description = "List of granular violations detected in the text.")
+
 
 def analyze_text(text: str):
     with open(RULES_PATH, "r") as f:
