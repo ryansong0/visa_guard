@@ -104,10 +104,6 @@ class ComplianceAgentService:
         self.model_id = "gemini-2.5-flash"
 
     def execute_chat_turn(self, conversation_history: List[Dict[str, str]]) -> str:
-        """
-        Coordinates multi-turn dialogue. Calls the local spaCy tool to grab telemetry,
-        then responds to the user while structuring the total state payload.
-        """
         system_instruction = (
             "You are an expert U.S. immigration compliance agent evaluating user job profiles.\n"
             "Your objective is to converse with the user and ensure their profile is completely free of managerial violations.\n\n"
