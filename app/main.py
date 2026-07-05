@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -50,3 +50,21 @@ def compute_compliance_telemetry(latest_input: str, high_risk_tokens: list) -> t
     requires_more = len(latest_input.split()) < 15 or risk_score == 0
     
     return risk_score, level, requires_more, flags
+
+@app.post("/chat", response_model = ChatAnalysisResponse)
+async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
+    if not payload.history:
+        raise HTTPException(status_code = 400, detail = "Dialogue history cannot be empty.")
+        
+    # 1. Extract user state
+    user_messages = [m.content for m in payload.history if m.role == "user"]
+    if not user_messages:
+        return ChatAnalysisResponse(
+            agent_message = "I'm ready when you are. Please paste a job description or list your core responsibilities.",
+            risk_score = 0,
+            overall_risk_level = "Safe",
+            requires_more_info = True,
+            flags = []
+        )
+        
+    latest_user_input = user_messages[-1]
