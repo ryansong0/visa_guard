@@ -43,7 +43,6 @@ with col1:
                     st.write(agent_reply)
 
                 st.session_state.telemetry = results
-                st.rerun()
             else:
                 st.error("Engine Communication Error: Backend API returned a faulty status code.")
         except requests.exceptions.ConnectionError:

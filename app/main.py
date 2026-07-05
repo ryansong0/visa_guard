@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from uvicorn
+import uvicorn
 
 app = FastAPI(title = "VisaGuard Compliance Engine", version = "1.0")
 
