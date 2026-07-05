@@ -38,6 +38,9 @@ REGULATORY_KB = [
     }
 ]
 
+for rule in REGULATORY_KB:
+    rule["embeddings"] = model.encode(rule["anchor_phrases"])
+
 class ChatMessage(BaseModel):
     role: str
     content: str
