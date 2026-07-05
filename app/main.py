@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+from uvicorn
 
 app = FastAPI(title = "VisaGuard Compliance Engine", version = "1.0")
 
@@ -68,3 +69,21 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
         )
         
     latest_user_input = user_messages[-1]
+
+    knowledge_base = {
+        "management consultant": {
+            "reason": "Explicitly flagged under 8 CFR 214.6. Management consultants must strictly operate in an advisory capacity, not operational management or day-to-day execution.",
+            "alternative": "Reframe responsibilities around 'strategic evaluation', 'process auditing', or 'operational assessment'.",
+            "weight": 50
+        },
+        "software engineer": {
+            "reason": "While highly technical, using generalized software engineering titles under the 'Engineer' category requires strict alignment with an engineering degree. Borderline or non-traditional degrees invite heavy RFE scrutiny.",
+            "alternative": "Specify the scientific or mathematical foundations of your systems engineering work.",
+            "weight": 25
+        },
+        "product manager": {
+            "reason": "Product Management is not a recognized statutory profession under the TN classification system. High risk of immediate denial if not aligned under a valid engineering or scientific category.",
+            "alternative": "Re-evaluate if duties align with 'Computer Systems Analyst' or 'Engineer', focusing entirely on architecture rather than business metrics.",
+            "weight": 80
+        }
+    }
