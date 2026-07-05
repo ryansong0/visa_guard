@@ -61,7 +61,31 @@ class ChatAnalysisResponse(BaseModel):
     flags: List[RiskFlag]
 
 
-def vector_compliance_scan(latest_input: str, SIMID_THRESHOLD: float = 0.42) -> tuple:
+def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
+    flags = []
+    max_observed_score = 0
+    
+    if not latest_input.strip():
+        return 0, "Safe", True, []
+    
+    user_embedding = model.encode([latest_input])
+
+    for rule in REGULATORY_KB:
+        similarities = cosine_similarity(user_embedding, rule["embeddings"])[0]
+        max_sim_idx = np.argmax(similarities)
+        highest_similarity = similarities[max_sim_idx]
+
+        if highest_similarity > threshold:
+            scaled_penalty = int(rule["base_weight"] * (highest_similarity ** 2))
+            max_observed_score = max(max_observed_score, scaled_penalty)
+
+            flags.append(RiskFlag(
+                matched_text=rule["anchor_phrases"][max_sim_idx],
+                reason=f"Matched regulatory restriction context via category '{rule['category']}' (Semantic Confidence: {highest_similarity:.2f}). {rule['reason']}",
+                suggested_alternative=rule["alternative"]
+            ))
+
+    risk_score = min(100, max_observed_score)
 
     
     if risk_score >= 75:
