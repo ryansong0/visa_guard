@@ -58,6 +58,11 @@ with col1:
             response = requests.post("http://127.0.0.1:8000/chat", 
             json = {"history": st.session_state.messages}
             )
+
+            print(f"DEBUG STATUS CODE: {response.status_code}")
+            print(f"DEBUG RESPONSE TEXT: {response.text}")
+
+
             if response.status_code == 200:
                 results = response.json()
 

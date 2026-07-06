@@ -6,6 +6,7 @@ import requests
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import uvicorn
+import traceback
 
 app = FastAPI(title = "VisaGuard Compliance Engine (Vector Edition)", version = "2.0")
 
@@ -144,8 +145,15 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
             reply = response.json().get("response", "Analysis processed.")
         else:
             reply = "Local AI loop tracking anomaly. Please verify Ollama system runtime parameters."
-    except requests.exceptions.ConnectionError:
-        reply = "⚠️ AI Helper Engine Offline. Ensure Ollama is running locally via 'ollama run llama3' in your terminal to receive automated compliance rewrites."
+    except Exception as e:
+        print("\n" + "="*50)
+        print("🚨 CRITICAL BACKEND ERROR CAUGHT:")
+        print(f"Exception Type: {type(e).__name__}")
+        print(f"Exception Message: {e}")
+        print("\nFull Traceback:")
+        traceback.print_exc()
+        print("="*50 + "\n")
+        raise HTTPException(status_code = 500, detail = "Internal processing error")
     
     return ChatAnalysisResponse(
         agent_message = reply,
