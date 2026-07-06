@@ -133,11 +133,19 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
     flag_context = "\n".join([f"- Context Flag: '{f.matched_text}'\n  Reason: {f.reason}" for f in flags])
 
     system_prompt = f"""
-    You are VisaGuard AI, an expert immigration compliance assistant specializing in 8 CFR 214.6 regulations.
+    You are VisaGuard AI, an expert immigration compliance attorney specializing in 8 CFR 214.6 regulations.
+
+    Your task is to analyze the following user text for TN Visa compliance risks. You must look past raw keywords and logically evaluate the context.
+
+    Our backend scanner flagged these specific phrases and reasons:
+    {flag_context if flag_context else "No automatic flags detected."}
     
-    INSTRUCTIONS:
-    Be concise (under 4 sentences). Identify why the phrasing sounds non-compliant based on the flagged context rules. Provide a 1-sentence compliant rewrite alternative. Do not hardcode or mention arbitrary risk score numbers in your commentary.
+    Review the text. If any of these phrases are explicitly negated or excluded 
+    (e.g., 'No management required', 'Without administrative duties', 'No day-to-day business administration'), they are SAFE.
     
+    Respond in this exact format:
+    VERDICT: [SAFE or RISK]
+    EXPLANATION: [Brief human explanation of the logic, addressing whether the flags were negated or true risks]
     """
 
     try:
