@@ -66,7 +66,8 @@ class ChatAnalysisResponse(BaseModel):
 
 def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
     flags = []
-    max_observed_score = 0
+    
+    total_risk = 0
     
     if not latest_input.strip():
         return 0, "Safe", True, []
@@ -86,7 +87,8 @@ def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
 
         if highest_similarity > threshold:
             scaled_penalty = int(rule["base_weight"] * highest_similarity)
-            max_observed_score = max(max_observed_score, scaled_penalty)
+            
+            total_risk += scaled_penalty
 
             flags.append(RiskFlag(
                 matched_text = rule["anchor_phrases"][anchor_idx],
@@ -94,7 +96,7 @@ def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
                 suggested_alternative = rule["alternative"]
             ))
 
-    risk_score = min(100, max_observed_score)
+    risk_score = min(100, total_risk)
 
     
     if risk_score >= 75:
