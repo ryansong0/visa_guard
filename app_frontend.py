@@ -71,9 +71,9 @@ with col1:
         except requests.exceptions.ConnectionError:
             st.error("Infrastructure Offline: Please make sure your FastAPI Uvicorn server is running on port 8000.")
 with col2:
-    st.subheader("📊 Telemetry Metrics")
+    st.subheader("📋 Document Ingestion")
 
-    uploaded_file = st.file_uploader("Upload a Job Description or Resume (PDF)", type=["pdf"])
+    uploaded_file = st.file_uploader("Upload a Job Description or Resume (PDF)", type = ["pdf"])
     
     if uploaded_file is not None:
         if st.button("🚀 Run Document Compliance Audit"):
