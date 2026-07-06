@@ -119,7 +119,7 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
         return ChatAnalysisResponse(
             agent_message = "I'm ready when you are. Please paste a job description or list your core responsibilities.",
             risk_score = 0,
-            overall_risk_level = "Safe",
+            overall_risk_level = "Pending",
             requires_more_info = True,
             flags = []
         )

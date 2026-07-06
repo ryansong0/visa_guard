@@ -37,7 +37,7 @@ if "messages" not in st.session_state:
     ]
 if "telemetry" not in st.session_state:
     st.session_state.telemetry = {
-        "risk_score": 0, "overall_risk_level": "Safe", "flags": [], "requires_more_info": True
+        "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False
     }
 
 col1, col2 = st.columns([3, 2])
@@ -70,6 +70,7 @@ with col1:
                 agent_reply = results.get("agent_message", "Analysis processed.")
                 st.session_state.messages.append({"role": "assistant", "content": agent_reply})
                 st.session_state.telemetry = results
+                st.session_state.telemetry["has_evaluated"] = True
                 st.rerun()
             else:
                 st.error("Engine Communication Error: Backend API returned a faulty status code.")
@@ -96,6 +97,7 @@ with col2:
                         results = response.json()
                         st.session_state.messages.append({"role": "assistant", "content": results.get("agent_message")})
                         st.session_state.telemetry = results
+                        st.session_state.telemetry["has_evaluated"] = True
                         st.success("Document analyzed successfully!")
                         st.rerun()
                     else:
@@ -110,8 +112,9 @@ with col2:
     score = tel.get("risk_score", 0)
     level = tel.get("overall_risk_level", "Pending")
     more_info = tel.get("requires_more_info", False)
+    has_evaluated = tel.get("has_evaluated", False)
     
-    if level == "Pending" or not level:
+    if not has_evaluated or level == "Pending":
         st.info("📊 System Ready: Awaiting a document upload or conversational input to begin telemetry tracking.")
     elif level in ["Critical", "High"]:
         st.error(f"🚨 Status: {level} Risk ({score}/100)")
@@ -121,8 +124,8 @@ with col2:
         st.success(f"✅ Status: {level} / Compliant ({score}/100)")
     else:
         st.info("📊 System Ready: Awaiting context data input.")
-        
-    if level != "Pending" and more_info and score == 0:
+
+    if has_evaluated and level != "Pending" and more_info and score == 0:
         st.info("🔄 Status: Awaiting Details (Gathering clearer context from dialogue)")
     
         
@@ -145,6 +148,6 @@ with col2:
             {"role": "assistant", "content": "Hello! Paste a job profile description, upload a PDF resume, or summarize your role..."}
         ]
         st.session_state.telemetry = {
-            "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True
+            "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False
         }
         st.rerun()
