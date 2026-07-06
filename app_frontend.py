@@ -1,5 +1,30 @@
 import streamlit as st
 import requests
+import pypdf
+
+def highlight_text(full_text: str, flags: list):
+    highlighted = full_text
+    for flag in flags:
+        target = flag.get("matched_text")
+        if target and target in highlighted:
+            highlighted = highlighted.replace(
+                target, f"<span style='background-color: #ffcccb; color: black; padding: 2px 4px; border-radius: 4px; font-weight: bold;'>{target}</span>"
+            )
+    return highlighted
+
+def extract_text_from_pdf(uploaded_file):
+    """Parses text from an uploaded Streamlit file-like object."""
+    try:
+        reader = pypdf.PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text.strip()
+    except Exception as e:
+        st.error(f"Failed to parse PDF: {e}")
+        return None
 
 st.set_page_config(page_title = "VisaGuard Compliance AI", page_icon = "🛡️", layout = "wide")
 
@@ -39,16 +64,41 @@ with col1:
 
                 agent_reply = results.get("agent_message", "Analysis processed.")
                 st.session_state.messages.append({"role": "assistant", "content": agent_reply})
-                with st.chat_message("assistant"):
-                    st.write(agent_reply)
-
                 st.session_state.telemetry = results
+                st.rerun()
             else:
                 st.error("Engine Communication Error: Backend API returned a faulty status code.")
         except requests.exceptions.ConnectionError:
             st.error("Infrastructure Offline: Please make sure your FastAPI Uvicorn server is running on port 8000.")
 with col2:
     st.subheader("📊 Telemetry Metrics")
+
+    uploaded_file = st.file_uploader("Upload a Job Description or Resume (PDF)", type=["pdf"])
+    
+    if uploaded_file is not None:
+        if st.button("🚀 Run Document Compliance Audit"):
+            with st.spinner("Processing local vector parsing..."):
+                extracted_text = extract_text_from_pdf(uploaded_file)
+            
+            if extracted_text:
+                st.session_state.messages.append({"role": "user", "content": f"[PDF Document Uploaded]:\n\n{extracted_text}"})
+                
+                try:
+                    response = requests.post("http://127.0.0.1:8000/chat", 
+                        json={"history": st.session_state.messages}
+                    )
+                    if response.status_code == 200:
+                        results = response.json()
+                        st.session_state.messages.append({"role": "assistant", "content": results.get("agent_message")})
+                        st.session_state.telemetry = results
+                        st.success("Document analyzed successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Backend Error parsing document.")
+                except requests.exceptions.ConnectionError:
+                    st.error("FastAPI Infrastructure Offline.")
+
+
     tel = st.session_state.telemetry
     
     score = tel.get("risk_score", 0)
