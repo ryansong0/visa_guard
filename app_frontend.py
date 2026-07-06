@@ -98,7 +98,8 @@ with col2:
                 except requests.exceptions.ConnectionError:
                     st.error("FastAPI Infrastructure Offline.")
 
-
+    st.markdown("---")
+    st.subheader("📊 Telemetry Metrics")
     tel = st.session_state.telemetry
     
     score = tel.get("risk_score", 0)
@@ -118,7 +119,23 @@ with col2:
     flags = tel.get("flags", [])
     if flags:
         st.markdown(f"### Highlighted Risk Metrics ({len(flags)})")
+        user_inputs = [m["content"] for m in st.session_state.messages if m["role"] == "user"]
+        if user_inputs:
+            annotated_html = highlight_text(user_inputs[-1], flags)
+            st.markdown(f"<div style='border: 1px solid #ddd; padding: 10px; border-radius: 5px; max-height: 250px; overflow-y: auto;'>{annotated_html}</div>", unsafe_allow_html=True)
+
+        st.markdown(f"### Highlighted Risk Metrics ({len(flags)})")
         for idx, flag in enumerate(flags):
             with st.expander(f"Violation #{idx+1}: '{flag.get('matched_text')}'"):
                 st.markdown(f"**Reason:** {flag.get('reason')}")
                 st.info(f"💡 **Suggested Correction:** {flag.get('suggested_alternative')}")
+        
+    st.markdown("---")
+    if st.button("🔄 Clear Analysis & Reset Session"):
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! Paste a job profile description, upload a PDF resume, or summarize your role..."}
+        ]
+        st.session_state.telemetry = {
+            "risk_score": 0, "overall_risk_level": "Safe", "flags": [], "requires_more_info": True
+        }
+        st.rerun()
