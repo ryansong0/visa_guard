@@ -65,7 +65,6 @@ with col1:
                 agent_reply = results.get("agent_message", "Analysis processed.")
                 st.session_state.messages.append({"role": "assistant", "content": agent_reply})
                 st.session_state.telemetry = results
-                st.rerun()
             else:
                 st.error("Engine Communication Error: Backend API returned a faulty status code.")
         except requests.exceptions.ConnectionError:
