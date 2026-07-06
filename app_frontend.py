@@ -111,15 +111,16 @@ with col2:
     level = tel.get("overall_risk_level", "Safe")
     more_info = tel.get("requires_more_info", False)
     
-    if more_info:
-        st.info("🔄 Status: Awaiting Details (Gathering clearer context from dialogue)")
-    elif level in ["Critical", "High"]:
+    if level in ["Critical", "High"]:
         st.error(f"🚨 Status: {level} Risk ({score}/100)")
     elif level == "Medium":
-        st.warning(f"⚠️ Status: {level} Risk ({score}/100)")
+            st.warning(f"⚠️ Status: {level} Risk ({score}/100)")
     else:
         st.success(f"✅ Status: {level} / Compliant ({score}/100)")
-        st.balloons()
+    
+    if more_info and score == 0:
+        st.info("🔄 Status: Awaiting Details (Gathering clearer context from dialogue)")
+    
         
     flags = tel.get("flags", [])
     if flags:
