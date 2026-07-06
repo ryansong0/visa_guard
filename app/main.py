@@ -48,7 +48,7 @@ class ChatMessage(BaseModel):
     content: str
 
 class ChatHistoryRequest(BaseModel):
-    history: List[dict]
+    history: List[ChatMessage]
 
 class RiskFlag(BaseModel):
     matched_text: str
@@ -105,7 +105,7 @@ def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
 
 @app.post("/chat", response_model = ChatAnalysisResponse)
 async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
-    user_messages = [m["content"] for m in payload.history if m["role"] == "user"]
+    user_messages = [m.content for m in payload.history if m.role == "user"]
     if not user_messages:
         return ChatAnalysisResponse(
             agent_message = "I'm ready when you are. Please paste a job description or list your core responsibilities.",
@@ -140,7 +140,7 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
             "stream": False
         }
         
-        response = requests.post(ollama_url, json=ollama_payload, timeout=20)
+        response = requests.post(ollama_url, json = ollama_payload, timeout = 20)
         if response.status_code == 200:
             reply = response.json().get("response", "Analysis processed.")
         else:
