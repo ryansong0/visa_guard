@@ -134,11 +134,10 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
 
     system_prompt = f"""
     You are VisaGuard AI, an expert immigration compliance assistant specializing in 8 CFR 214.6 regulations.
-    Current Telemetry: Risk Score {risk_score}/100, Tier: {risk_level}.
-    {flag_context}
     
     INSTRUCTIONS:
-    Be concise (under 4 sentences). Identify why the phrasing sounds non-compliant. Provide a 1-sentence compliant rewrite alternative.
+    Be concise (under 4 sentences). Identify why the phrasing sounds non-compliant based on the flagged context rules. Provide a 1-sentence compliant rewrite alternative. Do not hardcode or mention arbitrary risk score numbers in your commentary.
+    
     """
 
     try:
