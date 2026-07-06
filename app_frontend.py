@@ -108,18 +108,20 @@ with col2:
     tel = st.session_state.telemetry
     
     score = tel.get("risk_score", 0)
-    level = tel.get("overall_risk_level", "Safe")
+    level = tel.get("overall_risk_level", "Pending")
     more_info = tel.get("requires_more_info", False)
     
-    if level == "Pending":
+    if level == "Pending" or not level:
         st.info("📊 System Ready: Awaiting a document upload or conversational input to begin telemetry tracking.")
     elif level in ["Critical", "High"]:
         st.error(f"🚨 Status: {level} Risk ({score}/100)")
     elif level == "Medium":
         st.warning(f"⚠️ Status: {level} Risk ({score}/100)")
-    else:
+    elif level == "Safe":
         st.success(f"✅ Status: {level} / Compliant ({score}/100)")
-    
+    else:
+        st.info("📊 System Ready: Awaiting context data input.")
+        
     if level != "Pending" and more_info and score == 0:
         st.info("🔄 Status: Awaiting Details (Gathering clearer context from dialogue)")
     
