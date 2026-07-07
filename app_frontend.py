@@ -2,6 +2,13 @@ import streamlit as st
 import requests
 import pypdf
 
+st.set_page_config(
+    page_title = "VisaGuard // Compliance Engine",
+    page_icon = "🛡️",
+    layout = "wide",
+    initial_sidebar_state = "expanded"
+)
+
 def highlight_text(full_text: str, flags: list):
     highlighted = full_text
     for flag in flags:
