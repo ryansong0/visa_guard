@@ -31,6 +31,46 @@ st.markdown("""
         background-color: #161b22 !important;
         border-right: 1px solid #30363d;
     }
+
+    /* metric & highlight cards */
+    div[data-testid="metric-container"] {
+        background: rgba(22, 27, 34, 0.6);
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    /* metrics label changes */
+    div[data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        letter-spacing: -1px;
+    }
+            
+    /* custom status cards */
+    .violation-card {
+        background-color: rgba(248, 81, 73, 0.08);
+        border: 1px solid rgba(248, 81, 73, 0.4);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+    .violation-title {
+        color: #f85149;
+        font-weight: 700;
+        font-size: 14px;
+        font-family: 'JetBrains Mono', monospace;
+        margin-bottom: 6px;
+    }
+    
+    .safe-banner {
+        background-color: rgba(56, 139, 253, 0.1);
+        border: 1px solid rgba(56, 139, 253, 0.4);
+        border-radius: 8px;
+        padding: 16px;
+        color: #58a6ff;
+    }
     </style>
 """, unsafe_allow_html = True)
 
