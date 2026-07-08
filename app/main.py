@@ -83,7 +83,7 @@ def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
         s_embed_reshaped = s_embed.reshape(1, -1)
 
         for rule in REGULATORY_KB:
-            similarities = cosine_similarity(s_embed_reshaped, rule["embeddings"][0])
+            similarities = cosine_similarity(s_embed_reshaped, rule["embeddings"])[0]
             best_anchor_idx = np.argmax(similarities)
             highest_similarity = similarities[best_anchor_idx]
 
@@ -174,10 +174,10 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
                 flags = []
                 requires_more = False
             elif "VERDICT: LOW_RISK" in reply.upper():
-                risk_score = clamp_score(risk_score, 20, 44)
+                risk_score = clamp_score(risk_score, 10, 19)
                 risk_level = "Low"
             elif "VERDICT: MEDIUM_RISK" in reply.upper():
-                risk_score = clamp_score(risk_score, 25, 44)
+                risk_score = clamp_score(risk_score, 20, 44)
                 risk_level = "Medium"
             elif "VERDICT: CRITICAL_HIGH_RISK" in reply.upper():
                 risk_score = max(risk_score, 85)
