@@ -91,6 +91,17 @@ with st.sidebar:
         }
         st.rerun()
 
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "telemetry" not in st.session_state:
+    st.session_state.telemetry = {
+        "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False
+    }
+
+st.markdown("<h1 style='color:#ffffff; font-size: 28px; letter-spacing: -0.5px;'>VisaGuard <span style='color:#58a6ff; font-family:\"JetBrains Mono\"; font-size:16px;'>v2.0 // Compliance Analyzer</span></h1>", unsafe_allow_html=True)
+st.markdown("<p style='color:#8b949e; margin-top:-10px; font-size:14px;'>Automated statutory risk auditing framework for professional visa engineering applications.</p>", unsafe_allow_html = True)
+st.markdown("---")
+
 def highlight_text(full_text: str, flags: list):
     highlighted = full_text
     for flag in flags:
