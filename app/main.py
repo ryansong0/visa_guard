@@ -79,22 +79,24 @@ def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
     
     sentence_embeddings = model.encode(sentences)
 
-    for rule in REGULATORY_KB:
-        similarities = cosine_similarity(sentence_embeddings, rule["embeddings"])
-        flat_max_idx = np.argmax(similarities)
-        sent_idx, anchor_idx = divmod(flat_max_idx, similarities.shape[1])
-        highest_similarity = similarities[sent_idx, anchor_idx]
+    for s_idx, s_embed in enumerate(sentence_embeddings):
+        s_embed_reshaped = s_embed.reshape(1, -1)
 
-        if highest_similarity > threshold:
-            scaled_penalty = int(rule["base_weight"] * highest_similarity)
-            
-            total_risk += scaled_penalty
+        for rule in REGULATORY_KB:
+            similarities = cosine_similarity(s_embed_reshaped, rule["embeddings"][0])
+            best_anchor_idx = np.argmax(similarities)
+            highest_similarity = similarities[best_anchor_idx]
 
-            flags.append(RiskFlag(
-                matched_text = rule["anchor_phrases"][anchor_idx],
-                reason = f"Matched regulatory restriction context via category '{rule['category']}' (Semantic Confidence: {highest_similarity:.2f}). {rule['reason']}",
-                suggested_alternative = rule["alternative"]
-            ))
+            if highest_similarity > threshold:
+                scaled_penalty = int(rule["base_weight"] * highest_similarity)
+                total_risk += scaled_penalty
+
+                flags.append(RiskFlag(
+                    matched_text = sentences[s_idx],
+                    reason = f"Matched regulatory restriction context via category '{rule['category']}' (Semantic Confidence: {highest_similarity:.2f}). {rule['reason']}",
+                    suggested_alternative = rule["alternative"]
+                ))
+                break
 
     risk_score = min(100, total_risk)
 
@@ -132,14 +134,7 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
 
     formatted_flags = []
     for f in flags:
-        if isinstance(f, dict):
-            text = f.get("matched_text", "")
-            reason = f.get("reason", "")
-        else:
-            text = getattr(f, "matched_text", "")
-            reason = getattr(f, "reason", "")
-        if text:
-            formatted_flags.append(f"- Context Flag: '{text}'\n  Reason: {reason}")
+        formatted_flags.append(f"- Flagged User Sentence: '{f.matched_text}'\n  Reason: {f.reason}")
 
     flag_context = "\n".join(formatted_flags)
 
@@ -176,6 +171,7 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
                 risk_level = "Safe"
                 flags = []
                 requires_more = False
+            
         else:
             reply = "Local AI loop tracking anomaly. Please verify Ollama system runtime parameters."
     except Exception as e:
