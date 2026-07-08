@@ -74,6 +74,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html = True)
 
+def highlight_text(full_text: str, flags: list):
+    highlighted = full_text
+    for flag in flags:
+        target = flag.get("matched_text")
+        if target and target in highlighted:
+            highlighted = highlighted.replace(
+                target, f"<span style='background-color: #ffcccb; color: black; padding: 2px 4px; border-radius: 4px; font-weight: bold;'>{target}</span>"
+            )
+    return highlighted
+
+def extract_text_from_pdf(uploaded_file):
+    """Parses text from an uploaded Streamlit file-like object."""
+    try:
+        reader = pypdf.PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text.strip()
+    except Exception as e:
+        st.error(f"Failed to parse PDF: {e}")
+        return None
+
 with st.sidebar:
     st.markdown("<h2 style='color:#58a6ff; font-family:\"JetBrains Mono\"; font-size:18px;'>⚡ SYSTEM METRICS</h2>", unsafe_allow_html = True)
     st.markdown("---")
@@ -84,12 +108,21 @@ with st.sidebar:
     st.markdown("<h3 style='font-size:14px; font-family:\"JetBrains Mono\";'>SYSTEM UTILITIES</h3>", unsafe_allow_html = True)
     
     if st.button("🔄 Flush Telemetry Cache", use_container_width = True):
-        st.session_state.messages = []
+        st.session_state.messages = [{"role": "assistant", "content": "Hello! Paste a job profile description or list your core responsibilities."}]
         st.session_state.telemetry = {
             "risk_score": 0, "overall_risk_level": "Pending", 
             "flags": [], "requires_more_info": True, "has_evaluated": False
         }
         st.rerun()
+        
+if "messages" not in st.session_state or not st.session_state.messages:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Hello! Paste a job profile description, upload a PDF resume, or summarize your role..."}
+    ]
+if "telemetry" not in st.session_state:
+    st.session_state.telemetry = {
+        "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False
+    }
 
 st.markdown("<h1 style='color:#ffffff; font-size: 28px; letter-spacing: -0.5px;'>VisaGuard <span style='color:#58a6ff; font-family:\"JetBrains Mono\"; font-size:16px;'>v2.0 // Compliance Analyzer</span></h1>", unsafe_allow_html=True)
 st.markdown("<p style='color:#8b949e; margin-top:-10px; font-size:14px;'>Automated statutory risk auditing framework for professional visa engineering applications.</p>", unsafe_allow_html = True)
@@ -142,29 +175,6 @@ with col_left:
         except Exception as e:
             st.error(f"Failed to communicate with runtime compliance engine: {e}")
 
-def highlight_text(full_text: str, flags: list):
-    highlighted = full_text
-    for flag in flags:
-        target = flag.get("matched_text")
-        if target and target in highlighted:
-            highlighted = highlighted.replace(
-                target, f"<span style='background-color: #ffcccb; color: black; padding: 2px 4px; border-radius: 4px; font-weight: bold;'>{target}</span>"
-            )
-    return highlighted
-
-def extract_text_from_pdf(uploaded_file):
-    """Parses text from an uploaded Streamlit file-like object."""
-    try:
-        reader = pypdf.PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-        return text.strip()
-    except Exception as e:
-        st.error(f"Failed to parse PDF: {e}")
-        return None
 
 st.set_page_config(page_title = "VisaGuard Compliance AI", page_icon = "🛡️", layout = "wide")
 
