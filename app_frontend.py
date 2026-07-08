@@ -204,7 +204,7 @@ with col_right:
     # dashboard score metric blocks
     m_col1, m_col2 = st.columns(2)
     with m_col1:
-        st.metric(label="AUDIT RISK SCORE", value = f"{score} / 100")
+        st.metric(label = "AUDIT RISK SCORE", value = f"{score} / 100")
     with m_col2:
         st.markdown(f"""
             <div style='background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius:8px; padding:10px 20px; height:80px;'>
@@ -215,6 +215,36 @@ with col_right:
         
     st.markdown("---")
     st.markdown("<h4 style='font-size:14px; font-family:\"JetBrains Mono\"; color:#8b949e;'>STATUTORY VIOLATION MAP</h4>", unsafe_allow_html = True)
+
+    if not has_evaluated or level == "Pending":
+        st.info("📊 System Ready: Awaiting a document upload or conversational input to begin telemetry tracking.")
+    elif level == "Safe":
+        st.markdown("""
+            <div class='safe-banner'>
+                <p style='margin:0; font-family: "JetBrains Mono"; font-weight:700;'>✓ STATUS: VERIFIED COMPLIANT</p>
+                <p style='margin:5px 0 0 0; font-size:13px; color:#c9d1d9;'>Linguistic analysis engine detected no un-negated operational or managerial risk patterns mapping to 8 CFR 214.6 restrictions.</p>
+            </div>
+        """, unsafe_allow_html = True)
+
+    flags = tel.get("flags", [])
+    if flags:
+        st.markdown("##### Annotated Input Space")
+        user_inputs = [m["content"] for m in st.session_state.messages if m["role"] == "user"]
+        if user_inputs:
+            annotated_html = highlight_text(user_inputs[-1], flags)
+            st.markdown(f"<div style='background-color: #161b22; border: 1px solid #30363d; padding: 12px; border-radius: 8px; max-height: 200px; overflow-y: auto; font-size: 13px;'>{annotated_html}</div>", unsafe_allow_html = True)
+
+        st.markdown("<br>", unsafe_allow_html = True)
+
+        for idx, flag in enumerate(flags):
+            st.markdown(f"""
+                <div class='violation-card'>
+                    <div class='violation-title'>🚨 FLAG DETECTED #{idx+1}</div>
+                    <p style='margin:0; font-size:13px; color:#f85149;'><strong>Offending Phrasing:</strong> "{flag.get('matched_text')}"</p>
+                    <p style='margin:6px 0 0 0; font-size:13px; color:#c9d1d9;'><strong>Statutory Conflict:</strong> {flag.get('reason')}</p>
+                    <p style='margin:6px 0 0 0; font-size:13px; color:#58a6ff;'><strong>Suggested Alternative:</strong> {flag.get('suggested_alternative')}</p>
+                </div>
+            """, unsafe_allow_html = True)
 
 
 st.set_page_config(page_title = "VisaGuard Compliance AI", page_icon = "🛡️", layout = "wide")
