@@ -140,18 +140,19 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
 
     system_prompt = f"""
     You are VisaGuard AI, an expert immigration compliance attorney specializing in 8 CFR 214.6 regulations.
+    Your task is to analyze the user text for TN Visa compliance risks. Evaluate the real operational meaning.
 
-    Your task is to analyze the following user text for TN Visa compliance risks. You must look past raw keywords and logically evaluate the context.
-
-    Our backend scanner flagged these specific phrases and reasons:
+    Our backend scanner flagged these specific elements:
     {flag_context if flag_context else "No automatic flags detected."}
     
-    Review the text. If any of these phrases are explicitly negated or excluded 
-    (e.g., 'No management required', 'Without administrative duties', 'No day-to-day business administration'), they are SAFE.
+    CRITICAL RULES:
+    1. If the text mentions managing people, budgets, team direction, or corporate strategy execution, you must classify it as a heavy structural failure. Start your response with 'VERDICT: CRITICAL_HIGH_RISK'.
+    2. If the text involves consulting overlaps or advisory execution, start your response with 'VERDICT: MEDIUM_RISK'.
+    3. If the flags were explicitly negated or excluded (e.g., 'no personnel management responsibilities'), start your response with 'VERDICT: SAFE'.
     
-    Respond in this exact format:
-    VERDICT: [SAFE or RISK]
-    EXPLANATION: [Brief human explanation of the logic, addressing whether the flags were negated or true risks]
+    You MUST respond using this exact text layout:
+    VERDICT: [CRITICAL_HIGH_RISK, MEDIUM_RISK, or SAFE]
+    EXPLANATION: [Provide your human-level legal reasoning here]
     """
 
     try:
@@ -171,7 +172,12 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
                 risk_level = "Safe"
                 flags = []
                 requires_more = False
-            
+            elif "VERDICT: CRITICAL_HIGH_RISK" in reply.upper():
+                risk_score = max(risk_score, 85)
+                risk_level = "Critical"
+            elif "VERDICT: MEDIUM_RISK" in reply.upper():
+                risk_score = clamp_score(risk_score, 25, 44)
+                risk_level = "Medium"
         else:
             reply = "Local AI loop tracking anomaly. Please verify Ollama system runtime parameters."
     except Exception as e:
@@ -188,6 +194,9 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
         requires_more_info = requires_more,
         flags = flags
     )
+
+def clamp_score(n, minnum, maxnum):
+    return max(min(maxnum, n), minnum)
 
 if __name__ == "__main__":
     uvicorn.run("main.py:app", host = "127.0.0.1", port = 8000, reload = True)
