@@ -114,7 +114,7 @@ with st.sidebar:
             "flags": [], "requires_more_info": True, "has_evaluated": False
         }
         st.rerun()
-        
+
 if "messages" not in st.session_state or not st.session_state.messages:
     st.session_state.messages = [
         {"role": "assistant", "content": "Hello! Paste a job profile description, upload a PDF resume, or summarize your role..."}
@@ -128,21 +128,33 @@ st.markdown("<h1 style='color:#ffffff; font-size: 28px; letter-spacing: -0.5px;'
 st.markdown("<p style='color:#8b949e; margin-top:-10px; font-size:14px;'>Automated statutory risk auditing framework for professional visa engineering applications.</p>", unsafe_allow_html = True)
 st.markdown("---")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "telemetry" not in st.session_state:
-    st.session_state.telemetry = {
-        "risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False
-    }
-
-col_left, col_right = st.columns([3, 2], gap="large")
+col_left, col_right = st.columns([3, 2], gap = "large")
 
 with col_left:
-    st.markdown("<h3 style='font-size:16px; font-family:\"JetBrains Mono\"; color:#8b949e;'>[01] INPUT CHANNELS</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-size:16px; font-family:\"JetBrains Mono\"; color:#8b949e;'>[01] INPUT CHANNELS</h3>", unsafe_allow_html = True)
     
-    uploaded_file = st.file_uploader("Drop PDF or Text Job Specifications here", type=["pdf", "txt"], label_visibility="collapsed")
-    if uploaded_file:
-        pass
+    uploaded_file = st.file_uploader("Drop PDF or Text Job Specifications here", type = ["pdf", "txt"], label_visibility = "collapsed")
+    if uploaded_file is not None:
+        if st.button("🚀 Run Document Compliance Audit", use_container_width = True):
+            with st.spinner("Processing local vector parsing..."):
+                extracted_text = extract_text_from_pdf(uploaded_file)
+            
+            if extracted_text:
+                st.session_state.messages.append({"role": "user", "content": f"[PDF Document Uploaded]:\n\n{extracted_text}"})
+                st.session_state.telemetry = {"risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": False}
+
+                try:
+                    res = requests.post("http://127.0.0.1:8000/chat", json = {"history": st.session_state.messages})
+                    if res.status_code == 200:
+                        results = res.json()
+                        st.session_state.messages.append({"role": "assistant", "content": results.get("agent_message")})
+                        st.session_state.telemetry = results
+                        st.session_state.telemetry["has_evaluated"] = True
+                        st.rerun()
+                    else:
+                        st.error("Backend Error parsing document.")
+                except requests.exceptions.ConnectionError:
+                    st.error("FastAPI Infrastructure Offline.")
 
     st.markdown("---")
     st.markdown("<h3 style='font-size:16px; font-family:\"JetBrains Mono\"; color:#8b949e;'>[02] ANALYST DIALOGUE</h3>", unsafe_allow_html=True)
@@ -159,22 +171,17 @@ with col_left:
         st.session_state.telemetry = {"risk_score": 0, "overall_risk_level": "Pending", "flags": [], "requires_more_info": True, "has_evaluated": True}
         
         try:
-            res = requests.post("http://127.0.0.1:8000/chat", json={"history": st.session_state.messages})
+            res = requests.post("http://127.0.0.1:8000/chat", json = {"history": st.session_state.messages})
             if res.status_code == 200:
                 data = res.json()
                 st.session_state.messages.append({"role": "assistant", "content": data["agent_message"]})
-                
-                st.session_state.telemetry = {
-                    "risk_score": data["risk_score"],
-                    "overall_risk_level": data["overall_risk_level"],
-                    "flags": data["flags"],
-                    "requires_more_info": data["requires_more_info"],
-                    "has_evaluated": True
-                }
+                st.session_state.telemetry = data
+                st.session_state.telemetry["has_evaluated"] = True
                 st.rerun()
-        except Exception as e:
-            st.error(f"Failed to communicate with runtime compliance engine: {e}")
-
+            else:
+                st.error("Engine Communication Error: Backend API returned a faulty status code.")
+        except requests.exceptions.ConnectionError:
+            st.error("Infrastructure Offline: Please make sure your FastAPI Uvicorn server is running on port 8000.")
 
 st.set_page_config(page_title = "VisaGuard Compliance AI", page_icon = "🛡️", layout = "wide")
 
