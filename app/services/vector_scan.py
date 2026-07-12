@@ -41,6 +41,14 @@ class VectorScanService:
         for rule in REGULATORY_KB:
             encoded = self.model.encode(rule["anchor_phrases"])
             rule["embeddings"] = [np.array(vec).flatten() for vec in encoded]
+    
+    def compute_match_score(self, candidate_profile: str, job_description: str) -> int:
+        profile_embed = self.model.encode([candidate_profile])[0].flatten()
+        jd_embed = self.model.encode([job_description])[0].flatten()
+        norm = np.linalg.norm(profile_embed) * np.linalg.norm(jd_embed)
+        similarity = float(np.dot(profile_embed, jd_embed) / norm) if norm != 0 else 0.0
+        scaled = max(0, min(100, int((similarity - 0.2) / 0.6 * 100)))
+        return scaled
 
     def scan(self, latest_input: str) -> tuple:
         flags = []

@@ -3,6 +3,7 @@ from app.config import settings
 from app.schemas import ChatHistoryRequest, ChatAnalysisResponse, JobMatchRequest, JobMatchResponse
 from app.services.vector_scan import vector_scanner
 from app.services.llm_agent import LlmAgentService
+from app.services.analyzer import rules_engine
 from app.utils.helpers import clamp_score
 from pydantic import BaseModel
 from typing import List
@@ -13,9 +14,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 import uvicorn
 import traceback
 import re
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI(title = settings.APP_NAME, version = settings.VERSION)
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.post("/chat", response_model = ChatAnalysisResponse)
 async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
     user_messages = [m.content for m in payload.history if m.role == "user"]
@@ -75,26 +83,55 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
 @app.post("/match", response_model=JobMatchResponse)
 async def match_and_optimize_profile(payload: JobMatchRequest):
     """
-    Exposes the production-grade matching endpoint. 
-    Triggers the static vector pre-scan on the candidate's input profile text, 
-    then processes the agentic dual-critic optimization loop.
+    Two-stage pipeline: detection+scoring first, then a separate rewrite call
+    that only ever sees the resume text (never the job description).
     """
-    _, _, _, flags = vector_scanner.scan(payload.candidate_profile)
-    
-    formatted_flags = [f"- Flagged Text Segment: '{f.matched_text}'\n Reason: {f.reason}" for f in flags]
-    flag_context = "\n".join(formatted_flags)
-    
-    result = await LlmAgentService.run_matcher_pipeline(
-        candidate_profile = payload.candidate_profile,
-        job_description = payload.job_description,
-        flag_context = flag_context
+    _, _, _, semantic_flags = vector_scanner.scan(payload.candidate_profile)
+    semantic_lines = [f"- Flagged Text Segment: '{f.matched_text}'\n Reason: {f.reason}" for f in semantic_flags]
+
+    keyword_result = rules_engine(payload.candidate_profile)
+    keyword_lines = [
+        f"- Flagged Text Segment: '{f['matched_text']}'\n Reason: {f['reason']}"
+        for f in keyword_result["flags"]
+    ]
+
+    all_flag_lines = semantic_lines + keyword_lines
+    flag_context = "\n".join(all_flag_lines)
+
+    computed_match_score = vector_scanner.compute_match_score(
+        payload.candidate_profile, payload.job_description
     )
+    print(f"DEBUG computed_match_score = {computed_match_score}")
+
+    detection_result = await LlmAgentService.run_detection_pipeline(
+        candidate_profile=payload.candidate_profile,
+        job_description=payload.job_description,
+        flag_context=flag_context,
+        computed_match_score=computed_match_score
+    )
+
+    llm_score = detection_result.get("overall_match_score", computed_match_score)
+
+    if abs(llm_score - computed_match_score) > 10:
+        final_match_score = computed_match_score
+    else:
+        final_match_score = llm_score
+
+    detected_gaps = detection_result.get("detected_gaps", [])
     
+    if not flag_context.strip():
+        detected_gaps = [g for g in detected_gaps if g.get("category") != "Regulatory Compliance Risk"]
+
+    optimized_profile = await LlmAgentService.run_rewrite_pipeline(
+        candidate_profile=payload.candidate_profile,
+        detected_gaps=detection_result.get("detected_gaps", [])
+    )
+
     return JobMatchResponse(
-        compliance_verdict = result.get("compliance_verdict", "SAFE"),
-        overall_match_score = result.get("overall_match_score", 70),
-        detected_gaps = result.get("detected_gaps", []),
-        optimized_profile = result.get("optimized_profile", payload.candidate_profile)
+        compliance_verdict=detection_result.get("compliance_verdict", "SAFE"),
+        overall_match_score=final_match_score,
+        detected_gaps=detected_gaps,
+        optimized_profile=optimized_profile
     )
 
 if __name__ == "__main__":
