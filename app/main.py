@@ -1,4 +1,9 @@
 from fastapi import FastAPI, HTTPException
+from app.config import settings
+from app.schemas import ChatHistoryRequest, ChatAnalysisResponse, JobMatchRequest, JobMatchResponse
+from app.services.vector_scan import vector_scanner
+from app.services.llm_agent import LlmAgentService
+from app.utils.helpers import clamp_score
 from pydantic import BaseModel
 from typing import List
 import numpy as np
@@ -9,119 +14,7 @@ import uvicorn
 import traceback
 import re
 
-app = FastAPI(title = "VisaGuard Compliance Engine (Vector Edition)", version = "2.0")
-
-print("Loading semantic embedding model...")
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
-REGULATORY_KB = [
-    {
-        "category": "Management Consultant",
-        "anchor_phrases": [
-            "managing day to day operations and staff",
-            "execution of corporate business strategy",
-            "operating in a daily managerial or executive capacity",
-            "directing product lines and project management timelines"
-        ],
-        "reason": "Explicitly flagged under 8 CFR 214.6. Management consultants must strictly operate in an advisory capacity, not operational management or day-to-day execution.",
-        "alternative": "Reframe responsibilities around 'strategic evaluation', 'process auditing', or 'operational assessment'.",
-        "base_weight": 60
-    },
-    {
-        "category": "Non-Statutory Product Management",
-        "anchor_phrases": [
-            "owning product roadmap and business market fit",
-            "cross functional team leadership and revenue metrics",
-            "managing feature prioritization and marketing alignment",
-            "product manager responsible for lifecycle execution"
-        ],
-        "reason": "Product Management is not a recognized statutory profession under the TN classification system. High risk of immediate denial if not aligned under a valid engineering or scientific category.",
-        "alternative": "Re-evaluate if duties align with 'Computer Systems Analyst' or 'Engineer', focusing entirely on architecture rather than business metrics.",
-        "base_weight": 85
-    }
-]
-
-for rule in REGULATORY_KB:
-    encoded_phrases = model.encode(rule["anchor_phrases"])
-    rule["embeddings"] = [np.array(vector).flatten() for vector in encoded_phrases]
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-class ChatHistoryRequest(BaseModel):
-    history: List[ChatMessage]
-
-class RiskFlag(BaseModel):
-    matched_text: str
-    reason: str
-    suggested_alternative: str
-
-class ChatAnalysisResponse(BaseModel):
-    agent_message: str
-    risk_score: int
-    overall_risk_level: str
-    requires_more_info: bool
-    flags: List[RiskFlag]
-
-
-def vector_compliance_scan(latest_input: str, threshold: float = 0.42) -> tuple:
-    flags = []
-    
-    total_risk = 0
-    
-    if not latest_input.strip():
-        return 0, "Safe", True, []
-    
-    sentences = [s.strip() for s in re.split(r'[.\n!]+', latest_input) if s.strip()]
-
-    if not sentences:
-        return 0, "Safe", True, []
-    
-    sentence_embeddings = model.encode(sentences)
-
-    for s_idx, s_embed in enumerate(sentence_embeddings):
-        s_vec = s_embed.flatten()
-
-        for rule in REGULATORY_KB:
-            highest_similarity = -1.0
-            
-            for anchor_embed in rule["embeddings"]:
-                norm_product = np.linalg.norm(s_vec) * np.linalg.norm(anchor_embed)
-                if norm_product == 0:
-                    sim = 0.0
-                else:
-                    sim = float(np.dot(s_vec, anchor_embed) / norm_product)
-                
-                if sim > highest_similarity:
-                    highest_similarity = sim
-
-            if highest_similarity > threshold:
-                scaled_penalty = int(rule["base_weight"] * highest_similarity)
-                total_risk += scaled_penalty
-
-                flags.append(RiskFlag(
-                    matched_text = sentences[s_idx],
-                    reason = f"Matched regulatory restriction context via category '{rule['category']}' (Semantic Confidence: {highest_similarity:.2f}). {rule['reason']}",
-                    suggested_alternative = rule["alternative"]
-                ))
-                break
-
-    risk_score = min(100, total_risk)
-
-    
-    if risk_score >= 75:
-        level = "Critical"
-    elif risk_score >= 45:
-        level = "High"
-    elif risk_score >= 20:
-        level = "Medium"
-    else:
-        level = "Safe"
-        
-    requires_more = len(latest_input.split()) < 15 or risk_score == 0
-    
-    return risk_score, level, requires_more, flags
+app = FastAPI(title = settings.APP_NAME, version = settings.VERSION)
 
 @app.post("/chat", response_model = ChatAnalysisResponse)
 async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
@@ -137,79 +30,72 @@ async def analyze_compliance_dialogue(payload: ChatHistoryRequest):
         
     latest_user_input = user_messages[-1]
 
-    risk_score, risk_level, requires_more, flags = vector_compliance_scan(
+    risk_score, risk_level, requires_more, flags = vector_scanner.scan(
         latest_user_input
     )
 
-    formatted_flags = []
-    for f in flags:
-        formatted_flags.append(f"- Flagged User Sentence: '{f.matched_text}'\n  Reason: {f.reason}")
-
+    formatted_flags = [f"- Flagged User Sentence: '{f.matched_text}'\n  Reason: {f.reason}" for f in flags]
     flag_context = "\n".join(formatted_flags)
 
-    system_prompt = f"""
-    You are VisaGuard AI, an expert immigration compliance attorney specializing in 8 CFR 214.6 regulations.
-    Your task is to analyze the user text for TN Visa compliance risks. Evaluate the real operational meaning.
+    pipeline_result = await LlmAgentService.run_optimization_pipeline(latest_user_input, flag_context)
 
-    Our backend scanner flagged these specific elements:
-    {flag_context if flag_context else "No automatic flags detected."}
-    
-    CRITICAL RULES:
-    1. If the text mentions managing people, budgets, team direction, or corporate strategy execution, you must classify it as a heavy structural failure. Start your response with 'VERDICT: CRITICAL_HIGH_RISK'.
-    2. If the text involves consulting overlaps or advisory execution, start your response with 'VERDICT: MEDIUM_RISK'.
-    3. If the duties describe routine maintenance, basic IT support, helpdesk tickets, or manual tasks rather than high-level analytical engineering design, start your response with 'VERDICT: LOW_RISK'.
-    4. If the flags were explicitly negated or excluded (e.g., 'no personnel management responsibilities'), start your response with 'VERDICT: SAFE'.
-    
-    You MUST respond using this exact text layout:
-    VERDICT: [CRITICAL_HIGH_RISK, MEDIUM_RISK, LOW_RISK, or SAFE]
-    EXPLANATION: [Provide your human-level legal reasoning here]
-    """
+    verdict = pipeline_result.get("verdict", "SAFE")
+    explanation = pipeline_result.get("explanation", "")
+    optimized_text = pipeline_result.get("optimized_text", "")
 
-    try:
-        ollama_url = "http://127.0.0.1:11434/api/generate"
-        ollama_payload = {
-            "model": "llama3.2:latest",
-            "prompt": f"{system_prompt}\n\nUser Input to Analyze: {latest_user_input}",
-            "stream": False
-        }
-        
-        response = requests.post(ollama_url, json = ollama_payload, timeout = 60)
-        if response.status_code == 200:
-            reply = response.json().get("response", "Analysis processed.")
+    if verdict == "SAFE":
+        risk_score = 0
+        risk_level = "Safe"
+        flags = []
+        requires_more = False
+    elif verdict == "LOW_RISK":
+        risk_score = clamp_score(risk_score, 10, 19)
+        risk_level = "Low"
+    elif verdict ==  "MEDIUM_RISK":
+        risk_score = clamp_score(risk_score, 20, 44)
+        risk_level = "Medium"
+    elif verdict == "CRITICAL_HIGH_RISK":
+        risk_score = max(risk_score, 85)
+        risk_level = "Critical"
 
-            if "VERDICT: SAFE" in reply.upper():
-                risk_score = 0
-                risk_level = "Safe"
-                flags = []
-                requires_more = False
-            elif "VERDICT: LOW_RISK" in reply.upper():
-                risk_score = clamp_score(risk_score, 10, 19)
-                risk_level = "Low"
-            elif "VERDICT: MEDIUM_RISK" in reply.upper():
-                risk_score = clamp_score(risk_score, 20, 44)
-                risk_level = "Medium"
-            elif "VERDICT: CRITICAL_HIGH_RISK" in reply.upper():
-                risk_score = max(risk_score, 85)
-                risk_level = "Critical"
-        else:
-            reply = "Local AI loop tracking anomaly. Please verify Ollama system runtime parameters."
-    except Exception as e:
-        print(f"⚠️ Gatekeeper validation bypass applied due to background exception: {e}")
-        reply = "Analysis processed via local fallback engine due to a temporary AI connection timeout."
-        
-    if "EXPLANATION:" in reply:
-            reply = reply.split("EXPLANATION:")[-1].strip()
+    agent_display_message = (
+        f"{explanation}\n\n"
+        f"AUTOMATICALLY OPTIMIZED PROFILE VERSION:\n"
+        f"```text\n{optimized_text}\n```"
+    )
 
     return ChatAnalysisResponse(
-        agent_message = reply,
+        agent_message = agent_display_message,
         risk_score = risk_score,
         overall_risk_level = risk_level,
         requires_more_info = requires_more,
         flags = flags
     )
 
-def clamp_score(n, minnum, maxnum):
-    return max(min(maxnum, n), minnum)
+@app.post("/match", response_model=JobMatchResponse)
+async def match_and_optimize_profile(payload: JobMatchRequest):
+    """
+    Exposes the production-grade matching endpoint. 
+    Triggers the static vector pre-scan on the candidate's input profile text, 
+    then processes the agentic dual-critic optimization loop.
+    """
+    _, _, _, flags = vector_scanner.scan(payload.candidate_profile)
+    
+    formatted_flags = [f"- Flagged Text Segment: '{f.matched_text}'\n Reason: {f.reason}" for f in flags]
+    flag_context = "\n".join(formatted_flags)
+    
+    result = await LlmAgentService.run_matcher_pipeline(
+        candidate_profile = payload.candidate_profile,
+        job_description = payload.job_description,
+        flag_context = flag_context
+    )
+    
+    return JobMatchResponse(
+        compliance_verdict = result.get("compliance_verdict", "SAFE"),
+        overall_match_score = result.get("overall_match_score", 70),
+        detected_gaps = result.get("detected_gaps", []),
+        optimized_profile = result.get("optimized_profile", payload.candidate_profile)
+    )
 
 if __name__ == "__main__":
-    uvicorn.run("main.py:app", host = "127.0.0.1", port = 8000, reload = True)
+    uvicorn.run("app.main:app", host = "127.0.0.1", port = 8000, reload = True)
