@@ -261,7 +261,7 @@ class LlmAgentService:
 
                     if len(optimized_profile.strip()) < len(candidate_profile.strip()) * 0.6:
                         logger.error("Rewrite output too short — falling back to original profile.")
-                        return candidate_profile
+                        return cls._scrub_banned_terms(candidate_profile)
 
                     leaked = BANNED_TERMS_PATTERN.findall(optimized_profile)
                     if leaked:
@@ -291,9 +291,12 @@ class LlmAgentService:
                             best_profile = retry_profile if len(retry_profile.strip()) >= len(candidate_profile.strip()) * 0.6 else optimized_profile
                             return cls._scrub_banned_terms(best_profile)
 
+                        logger.error("Retry request failed — applying deterministic scrub to first-draft rewrite.")
+                        return cls._scrub_banned_terms(optimized_profile)
+
                     logger.info("Rewrite pipeline succeeded.")
                     return optimized_profile
             except Exception as e:
                 logger.error(f"Rewrite Pipeline Failure: {type(e).__name__}: {e!r}")
 
-            return candidate_profile
+            return cls._scrub_banned_terms(candidate_profile)

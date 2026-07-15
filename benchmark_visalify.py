@@ -221,9 +221,13 @@ TEST_CASES = [
 
 
 def has_banned_words(text: str) -> list:
-    """Return list of banned words found in text (case-insensitive)."""
-    text_lower = text.lower()
-    return [w for w in BANNED_WORDS if w in text_lower]
+    """Return list of banned words found in text (case-insensitive, whole-word only).
+
+    A plain substring check would flag words like "enabled" or "modeled" as leaking
+    "led", since "led" is a substring of their "-ed" past-tense ending. Match on word
+    boundaries instead, consistent with the app's own BANNED_TERMS_PATTERN.
+    """
+    return [w for w in BANNED_WORDS if re.search(rf"\b{re.escape(w)}\b", text, re.IGNORECASE)]
 
 
 def run_benchmark():

@@ -120,14 +120,20 @@ async def match_and_optimize_profile(payload: JobMatchRequest):
     detected_gaps = detection_result.get("detected_gaps", [])
     has_compliance_gap = any(g.get("category") == "Regulatory Compliance Risk" for g in detected_gaps)
 
-    if not flag_context.strip():
-        # Pre-scan found nothing real — strip any compliance gap the LLM hallucinated.
+    if not keyword_result["flags"]:
+        # No literal supervisory/managerial word (managed/led/directed/oversaw) was
+        # found. Semantic-only matches are noisy — they can fire at ~0.42-0.50
+        # confidence on generic sentences with no real supervisory language — so they
+        # aren't trusted as ground truth here. Strip any compliance gap the LLM
+        # hallucinated from that noise.
         detected_gaps = [g for g in detected_gaps if g.get("category") != "Regulatory Compliance Risk"]
     elif not has_compliance_gap:
-        # Pre-scan found real supervisory/managerial matches, but the detection LLM
-        # failed to surface them. The pre-scan is deterministic and already the source
-        # of truth per the system prompt, so synthesize the gap directly instead of
-        # trusting a small model's inconsistent judgment call.
+        # Pre-scan found a literal supervisory/managerial word (managed/led/directed/
+        # oversaw), but the detection LLM failed to surface it. Keyword matches are a
+        # precise, low-noise signal (unlike semantic-only matches, which can fire at
+        # ~0.42-0.50 confidence on generic sentences with no real supervisory language),
+        # so it's safe to synthesize the gap directly instead of trusting a small
+        # model's inconsistent judgment call.
         if semantic_flags:
             matched_text = semantic_flags[0].matched_text
             alternative = semantic_flags[0].suggested_alternative
@@ -147,7 +153,7 @@ async def match_and_optimize_profile(payload: JobMatchRequest):
     )
 
     compliance_verdict = detection_result.get("compliance_verdict", "SAFE")
-    if flag_context.strip() and not has_compliance_gap and compliance_verdict == "SAFE":
+    if keyword_result["flags"] and not has_compliance_gap and compliance_verdict == "SAFE":
         # We just injected a compliance gap the LLM missed — the verdict can't stay "SAFE".
         compliance_verdict = "MEDIUM_RISK"
 
