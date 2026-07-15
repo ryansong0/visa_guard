@@ -118,17 +118,41 @@ async def match_and_optimize_profile(payload: JobMatchRequest):
         final_match_score = llm_score
 
     detected_gaps = detection_result.get("detected_gaps", [])
-    
+    has_compliance_gap = any(g.get("category") == "Regulatory Compliance Risk" for g in detected_gaps)
+
     if not flag_context.strip():
+        # Pre-scan found nothing real — strip any compliance gap the LLM hallucinated.
         detected_gaps = [g for g in detected_gaps if g.get("category") != "Regulatory Compliance Risk"]
+    elif not has_compliance_gap:
+        # Pre-scan found real supervisory/managerial matches, but the detection LLM
+        # failed to surface them. The pre-scan is deterministic and already the source
+        # of truth per the system prompt, so synthesize the gap directly instead of
+        # trusting a small model's inconsistent judgment call.
+        if semantic_flags:
+            matched_text = semantic_flags[0].matched_text
+            alternative = semantic_flags[0].suggested_alternative
+        else:
+            matched_text = keyword_result["flags"][0]["matched_text"]
+            alternative = keyword_result["flags"][0]["suggested_alternative"]
+
+        detected_gaps.append({
+            "category": "Regulatory Compliance Risk",
+            "detected_risk": f"Your resume contains supervisory/managerial language (e.g., \"{matched_text}\") that may fall outside the individual-contributor scope typically required for this visa classification.",
+            "optimization_strategy": f"Reframe this language around hands-on technical contribution rather than people management — for example: {alternative}."
+        })
 
     optimized_profile = await LlmAgentService.run_rewrite_pipeline(
         candidate_profile=payload.candidate_profile,
-        detected_gaps=detection_result.get("detected_gaps", [])
+        detected_gaps=detected_gaps
     )
 
+    compliance_verdict = detection_result.get("compliance_verdict", "SAFE")
+    if flag_context.strip() and not has_compliance_gap and compliance_verdict == "SAFE":
+        # We just injected a compliance gap the LLM missed — the verdict can't stay "SAFE".
+        compliance_verdict = "MEDIUM_RISK"
+
     return JobMatchResponse(
-        compliance_verdict=detection_result.get("compliance_verdict", "SAFE"),
+        compliance_verdict=compliance_verdict,
         overall_match_score=final_match_score,
         detected_gaps=detected_gaps,
         optimized_profile=optimized_profile

@@ -1,0 +1,239 @@
+{
+  "results": [
+    {
+      "id": "clean_high_1",
+      "expected_management": false,
+      "detected_management": true,
+      "expected_tier": "high",
+      "score": 56,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_2",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "high",
+      "score": 75,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_3",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "high",
+      "score": 87,
+      "length_ratio": 1.02,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_4",
+      "expected_management": false,
+      "detected_management": true,
+      "expected_tier": "high",
+      "score": 75,
+      "length_ratio": 1.27,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_5",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "high",
+      "score": 70,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_low_1",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "low",
+      "score": 31,
+      "length_ratio": 1.76,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_low_2",
+      "expected_management": false,
+      "detected_management": true,
+      "expected_tier": "low",
+      "score": 16,
+      "length_ratio": 0.99,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_low_3",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "low",
+      "score": 1,
+      "length_ratio": 1.49,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_low_4",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "low",
+      "score": 44,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_low_5",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "low",
+      "score": 62,
+      "length_ratio": 1.18,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mgmt_1",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "medium",
+      "score": 40,
+      "length_ratio": 1.31,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mgmt_2",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "low",
+      "score": 1,
+      "length_ratio": 1.15,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mgmt_3",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "medium",
+      "score": 55,
+      "length_ratio": 1.07,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mgmt_4",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "low",
+      "score": 35,
+      "length_ratio": 1.35,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mgmt_5",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "medium",
+      "score": 30,
+      "length_ratio": 1.23,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mixed_1",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "high",
+      "score": 75,
+      "length_ratio": 1.0,
+      "banned_words_remaining": [
+        "led"
+      ]
+    },
+    {
+      "id": "mixed_2",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "high",
+      "score": 70,
+      "length_ratio": 0.96,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "mixed_3",
+      "expected_management": true,
+      "detected_management": true,
+      "expected_tier": "high",
+      "score": 92,
+      "length_ratio": 1.12,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_med_1",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "medium",
+      "score": 70,
+      "length_ratio": 1.13,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_med_2",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "medium",
+      "score": 11,
+      "length_ratio": 1.46,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_med_3",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "medium",
+      "score": 56,
+      "length_ratio": 1.18,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_med_4",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "medium",
+      "score": 46,
+      "length_ratio": 1.19,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_med_5",
+      "expected_management": false,
+      "detected_management": true,
+      "expected_tier": "medium",
+      "score": 55,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_6",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "high",
+      "score": 52,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    },
+    {
+      "id": "clean_high_7",
+      "expected_management": false,
+      "detected_management": false,
+      "expected_tier": "high",
+      "score": 50,
+      "length_ratio": 1.0,
+      "banned_words_remaining": []
+    }
+  ],
+  "summary": {
+    "total_cases": 25,
+    "hallucination_rate_pct": 23.5,
+    "detection_recall_pct": 100.0,
+    "score_groundedness_pct": 72.0,
+    "avg_rewrite_length_ratio": 1.15,
+    "banned_word_leakage_pct": 12.5
+  }
+}

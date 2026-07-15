@@ -28,7 +28,21 @@ REGULATORY_KB = [
         "reason": "Product Management is not a recognized statutory profession under the TN classification system.",
         "alternative": "Re-evaluate if duties align with 'Computer Systems Analyst' or 'Engineer'.",
         "base_weight": 85
-    }
+    },
+    {
+    "category": "Engineering/Technical Team Management",
+    "anchor_phrases": [
+        "managed a team of engineers building software",
+        "led technical strategy and architecture decisions for a team",
+        "oversaw hiring, performance reviews, and staff development",
+        "directed sprint planning and engineering resource allocation",
+        "led a research or engineering initiative from conception to production",
+        "mentored and supervised junior engineers on a team"
+    ],
+    "reason": "Supervisory management of engineering/technical staff is generally outside the scope of specialty-occupation or TN/H-1B individual-contributor roles.",
+    "alternative": "Reframe around individual technical contribution — architecture, implementation, hands-on delivery — rather than people oversight.",
+    "base_weight": 65
+}
 ]
 
 class VectorScanService:

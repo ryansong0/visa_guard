@@ -1,5 +1,6 @@
 import httpx
 import json
+import re
 import logging
 from typing import Dict, Any
 from app.config import settings
@@ -128,8 +129,8 @@ class LlmAgentService:
         been computed independently via embeddings. Use it as your baseline for 'overall_match_score' — 
         adjust by at most ±10 points. Never reduce this score because of compliance/visa-risk language.
 
-        CRITICAL — NO FABRICATION: Only reference text that is verbatim present in the CANDIDATE PROFILE. 
-    r paraphrase a sentence from the JOB DESCRIPTION as if it came from the candidate's resume.
+        CRITICAL — NO FABRICATION: Only reference text that is verbatim present in the CANDIDATE PROFILE.
+        Never paraphrase a sentence from the JOB DESCRIPTION as if it came from the candidate's resume.
 
         2. COMPLIANCE ENFORCEMENT: A separate detection system has already scanned the candidate profile 
         for supervisory/managerial language and found these specific matches:
@@ -179,6 +180,28 @@ class LlmAgentService:
                 "detected_gaps": [{"category": "Technical Skill Gap", "detected_risk": "Detection pipeline unavailable.", "optimization_strategy": "Verify Ollama connectivity."}]
             }
 
+    _BANNED_TERM_REPLACEMENTS = {
+        "managed": "coordinated",
+        "led": "guided",
+        "directed": "facilitated",
+        "overseeing": "monitoring",
+        "oversaw": "monitored",
+    }
+
+    @classmethod
+    def _scrub_banned_terms(cls, text: str) -> str:
+        """Deterministic last-resort safety net: swap any surviving banned
+        supervisory verbs for a neutral synonym, preserving capitalization.
+        Guarantees zero leakage even if the LLM fails the rewrite twice."""
+        pattern = re.compile(r'\b(managed|led|directed|overseeing|oversaw)\b', re.IGNORECASE)
+
+        def _replace(match: re.Match) -> str:
+            word = match.group(0)
+            replacement = cls._BANNED_TERM_REPLACEMENTS[word.lower()]
+            return replacement.capitalize() if word[0].isupper() else replacement
+
+        return pattern.sub(_replace, text)
+
     @classmethod
     async def run_rewrite_pipeline(cls, candidate_profile: str, detected_gaps: list) -> str:
         """
@@ -218,6 +241,7 @@ class LlmAgentService:
 
         Respond strictly as valid JSON matching the schema.
         """
+        BANNED_TERMS_PATTERN = re.compile(r'\b(managed|led|directed|overseeing|oversaw)\b', re.IGNORECASE)
 
         url = f"{settings.OLLAMA_URL}/api/generate"
         payload = {
@@ -238,6 +262,34 @@ class LlmAgentService:
                     if len(optimized_profile.strip()) < len(candidate_profile.strip()) * 0.6:
                         logger.error("Rewrite output too short — falling back to original profile.")
                         return candidate_profile
+
+                    leaked = BANNED_TERMS_PATTERN.findall(optimized_profile)
+                    if leaked:
+                        logger.warning(f"Rewrite leaked banned terms: {leaked} — retrying once.")
+                        retry_prompt = (
+                            f"{system_prompt}\n\nIMPORTANT: Your previous rewrite still contained "
+                            f"these banned words: {', '.join(set(leaked))}. Remove them completely this time."
+                        )
+                        retry_payload = {
+                            "model": settings.LLM_MODEL,
+                            "prompt": f"{retry_prompt}\n\n[RESUME TEXT TO REWRITE]:\n{candidate_profile}",
+                            "stream": False,
+                            "format": cls._get_rewrite_schema()
+                        }
+                        retry_response = await client.post(url, json=retry_payload, timeout=120.0)
+                        if retry_response.status_code == 200:
+                            retry_raw = retry_response.json().get("response", "{}")
+                            retry_parsed = json.loads(retry_raw)
+                            retry_profile = retry_parsed.get("optimized_profile", optimized_profile)
+                            if not BANNED_TERMS_PATTERN.findall(retry_profile) and \
+                               len(retry_profile.strip()) >= len(candidate_profile.strip()) * 0.6:
+                                logger.info("Retry succeeded — banned terms removed.")
+                                return retry_profile
+                            logger.error(
+                                "Retry still leaked banned terms — applying deterministic scrub as a last resort."
+                            )
+                            best_profile = retry_profile if len(retry_profile.strip()) >= len(candidate_profile.strip()) * 0.6 else optimized_profile
+                            return cls._scrub_banned_terms(best_profile)
 
                     logger.info("Rewrite pipeline succeeded.")
                     return optimized_profile
