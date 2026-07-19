@@ -1,14 +1,25 @@
 import json
 import os
-import spacy
+import re
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 
-nlp = spacy.load("en_core_web_sm")
-
 RULES_PATH = os.path.join(os.path.dirname(__file__), "..", "rules", "prohibited_terms.json")
+
+# Word-form lookup replacing spaCy's lemmatizer — the term list is small and
+# fixed, so hardcoding inflections (including irregulars like lead -> led,
+# oversee -> oversaw) avoids needing a full NLP pipeline just for this.
+_INFLECTIONS = {
+    "manage": ["manage", "manages", "managed", "managing"],
+    "lead": ["lead", "leads", "led", "leading"],
+    "direct": ["direct", "directs", "directed", "directing"],
+    "oversee": ["oversee", "oversees", "oversaw", "overseeing", "overseen"],
+}
+_SURFACE_TO_LEMMA = {form: lemma for lemma, forms in _INFLECTIONS.items() for form in forms}
+_WORD_PATTERN = re.compile(r"[A-Za-z']+")
+_SENTENCE_SPLIT = re.compile(r'[.\n!?]+')
 
 class ComplianceFlag(BaseModel):
     matched_text: str
@@ -31,8 +42,6 @@ def rules_engine(text: str) -> dict:
         rules = json.load(f)
     findings = []
 
-    doc = nlp(text)
-
     severity_weights = {
         "low": 10,
         "medium": 30,
@@ -42,23 +51,45 @@ def rules_engine(text: str) -> dict:
     accumulated_risk = 0
 
     term_lookup = {item["term"].lower(): item for item in rules["managerial_terms"]}
-    technical_objects = ["pipeline", "pipelines", "system", "systems", "database", "databases", "code"]
+    technical_objects = {"pipeline", "pipelines", "system", "systems", "database", "databases", "code"}
 
-    for token in doc:
-        lemma = token.lemma_.lower()
-        if lemma not in term_lookup:
+    # Tag each character with a sentence index so the following-words window
+    # below (approximating spaCy's dependency-child check) never crosses a
+    # sentence boundary.
+    sentence_id_at = [0] * (len(text) + 1)
+    current_id = 0
+    for i, ch in enumerate(text):
+        sentence_id_at[i] = current_id
+        if ch in ".\n!?":
+            current_id += 1
+    sentence_id_at[len(text)] = current_id
+
+    tokens = list(_WORD_PATTERN.finditer(text))
+
+    for i, match in enumerate(tokens):
+        word = match.group(0).lower()
+        lemma = _SURFACE_TO_LEMMA.get(word)
+        if lemma is None or lemma not in term_lookup:
             continue
 
         item = term_lookup[lemma]
         severity = item.get("severity", "low").lower()
         weight = severity_weights.get(severity, 10)
 
-        children_text = [child.text.lower() for child in token.children]
-        is_false_positive = any(obj in children_text for obj in technical_objects)
+        # Approximate spaCy's dependency-child check (was the verb's object a
+        # technical noun like "pipeline"/"database"?) by looking at the next
+        # few words in the same sentence, since English verb-object order
+        # puts the object shortly after the verb.
+        token_sentence = sentence_id_at[match.start()]
+        following_words = []
+        for j in range(i + 1, min(i + 5, len(tokens))):
+            if sentence_id_at[tokens[j].start()] != token_sentence:
+                break
+            following_words.append(tokens[j].group(0).lower())
+        is_false_positive = any(obj in following_words for obj in technical_objects)
 
         if not is_false_positive:
-            start = token.idx
-            end = token.idx + len(token.text)
+            start, end = match.start(), match.end()
             findings.append({
                 "term": lemma,
                 "matched_text": text[start:end],

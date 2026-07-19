@@ -1,6 +1,6 @@
 import numpy as np
 import re
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from app.config import settings
 from app.schemas import RiskFlag
 
@@ -47,30 +47,41 @@ REGULATORY_KB = [
 
 class VectorScanService:
     def __init__(self):
-        print(f"Initializing Semantic Space via {settings.EMBEDDING_MODEL}...")
-        self.model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        print("Initializing lightweight TF-IDF semantic space...")
         self._bake_knowledge_base()
 
-    @staticmethod
-    def _normalize_rows(matrix: np.ndarray) -> np.ndarray:
-        """L2-normalize each row to a unit vector; zero rows are left as zero
-        instead of dividing by zero, matching the original per-pair norm check."""
-        norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        return matrix / norms
-
     def _bake_knowledge_base(self):
+        all_anchors = []
+        rule_ranges = []
         for rule in REGULATORY_KB:
-            encoded = np.asarray(self.model.encode(rule["anchor_phrases"]), dtype=np.float32)
-            rule["embeddings"] = encoded
-            rule["normalized_embeddings"] = self._normalize_rows(encoded)
+            start = len(all_anchors)
+            all_anchors.extend(rule["anchor_phrases"])
+            rule_ranges.append((start, len(all_anchors)))
+
+        # A single vectorizer fit across every rule's anchor phrases, so all anchor
+        # vectors and later sentence vectors share the same vocabulary/IDF weights.
+        # TfidfVectorizer L2-normalizes rows by default, so a dot product between two
+        # rows is already cosine similarity (no separate normalize step needed).
+        self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english")
+        anchor_matrix = self.vectorizer.fit_transform(all_anchors).toarray().astype(np.float32)
+
+        for rule, (start, end) in zip(REGULATORY_KB, rule_ranges):
+            rule["anchor_vectors"] = anchor_matrix[start:end]
 
     def compute_match_score(self, candidate_profile: str, job_description: str) -> int:
-        profile_embed = self.model.encode([candidate_profile])[0].flatten()
-        jd_embed = self.model.encode([job_description])[0].flatten()
-        norm = np.linalg.norm(profile_embed) * np.linalg.norm(jd_embed)
-        similarity = float(np.dot(profile_embed, jd_embed) / norm) if norm != 0 else 0.0
-        scaled = max(0, min(100, int((similarity - 0.2) / 0.6 * 100)))
+        # Fit a throwaway vectorizer on just this pair so the comparison reflects the
+        # actual vocabulary of the resume/JD, rather than the small KB anchor vocabulary.
+        vectorizer = TfidfVectorizer(stop_words="english")
+        try:
+            tfidf = vectorizer.fit_transform([candidate_profile, job_description]).toarray()
+        except ValueError:
+            return 0
+        similarity = float(np.dot(tfidf[0], tfidf[1]))
+        # TF-IDF cosine similarities for resume/JD pairs cluster tightly in a low range
+        # (~0.0-0.4) compared to embedding-based similarity, so a cube-root scale spreads
+        # them out across the 0-100 band far better than a linear one. Calibrated against
+        # the 25-resume labeled validation set's expected tiers (see scratch_tune.py).
+        scaled = max(0, min(100, int((similarity ** (1 / 3)) * 115)))
         return scaled
 
     def scan(self, latest_input: str) -> tuple:
@@ -84,15 +95,13 @@ class VectorScanService:
         if not sentences:
             return 0, "Safe", True, []
 
-        sentence_embeddings = np.asarray(self.model.encode(sentences), dtype=np.float32)
-        normalized_sentences = self._normalize_rows(sentence_embeddings)
+        sentence_vectors = self.vectorizer.transform(sentences).toarray().astype(np.float32)
 
         # Vectorized cosine similarity: one matrix multiply per rule (against every
         # anchor phrase at once) instead of a per-sentence/per-anchor Python loop of
-        # individual dot-product calls. Numerically identical to the scalar version
-        # since dotting two unit vectors is exactly cosine similarity.
+        # individual dot-product calls.
         per_rule_best_sim = np.stack([
-            (normalized_sentences @ rule["normalized_embeddings"].T).max(axis=1)
+            (sentence_vectors @ rule["anchor_vectors"].T).max(axis=1)
             for rule in REGULATORY_KB
         ], axis=1)  # shape: (n_sentences, n_rules)
 

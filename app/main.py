@@ -9,8 +9,6 @@ from pydantic import BaseModel
 from typing import List
 import numpy as np
 import requests
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 import uvicorn
 import traceback
 import re
