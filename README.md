@@ -1,5 +1,7 @@
 # Visalify
 
+**Live demo:** [visalify-app.vercel.app](https://visalify-app.vercel.app)
+
 Visalify checks a candidate's resume against a target job description for TN/H-1B-style visa roles, flags language that could read as a visa-compliance risk (supervisory/managerial phrasing that undercuts an "individual contributor" role classification), and rewrites the resume to reframe that language as hands-on technical work — without inventing skills or dropping content.
 
 ## How it works
