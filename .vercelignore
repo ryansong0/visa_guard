@@ -2,7 +2,6 @@ venv/
 .venv/
 node_modules/
 visalify-web/
-.git/
 .claude/
 .vscode/
 __pycache__/
@@ -15,3 +14,5 @@ benchmark_results.json
 perf_benchmark.py
 app_frontend.py
 requirements-dev.txt
+Dockerfile
+.dockerignore

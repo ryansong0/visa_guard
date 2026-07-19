@@ -27,13 +27,14 @@ Both scripts are runnable and reproducible — see below.
 ## Stack
 
 - **Backend**: FastAPI, scikit-learn (TF-IDF), Groq API — deliberately dependency-light so it fits free-tier hosting without a GPU or large memory footprint
-- **Frontend**: Next.js (deployed on Vercel)
+- **Frontend**: Next.js
+- Both deployed as separate Vercel projects from this same repo (backend as a Python serverless function, frontend as the Next.js app in `visalify-web/`)
 
 ## Running locally
 
 ```bash
 # Backend
-pip install -r requirements-backend.txt
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 
 # Frontend
