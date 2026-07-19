@@ -1,7 +1,6 @@
 venv/
 .venv/
 node_modules/
-visalify-web/
 .claude/
 .vscode/
 __pycache__/
